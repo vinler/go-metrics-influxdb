@@ -2,7 +2,6 @@ package influxdb
 
 import (
 	"fmt"
-	"log"
 	uurl "net/url"
 	"time"
 
