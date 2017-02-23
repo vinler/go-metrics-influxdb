@@ -91,12 +91,24 @@ func (r *reporter) send() error {
 	r.reg.Each(func(name string, i interface{}) {
 		now := time.Now()
 
+		var mergeTags = func(from map[string]string) map[string]string {
+			m := make(map[string]string)
+			for k, v := range r.tags {
+				m[k] = v
+			}
+			for k, v := range from {
+				m[k] = v
+			}
+			return m
+		}
+
 		switch metric := i.(type) {
 		case metrics.Counter:
+			metricName, metricTags := metrics.DecodeNameWithTags(name)
 			ms := metric.Snapshot()
 			pts = append(pts, client.Point{
-				Measurement: fmt.Sprintf("%s.count", name),
-				Tags:        r.tags,
+				Measurement: metricName,
+				Tags:        mergeTags(metricTags),
 				Fields: map[string]interface{}{
 					"value": ms.Count(),
 				},
