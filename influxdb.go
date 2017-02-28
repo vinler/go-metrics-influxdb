@@ -1,7 +1,6 @@
 package influxdb
 
 import (
-	"fmt"
 	uurl "net/url"
 	"time"
 
@@ -91,24 +90,22 @@ func (r *reporter) send() error {
 	r.reg.Each(func(name string, i interface{}) {
 		now := time.Now()
 
-		var mergeTags = func(from map[string]string) map[string]string {
-			m := make(map[string]string)
-			for k, v := range r.tags {
-				m[k] = v
-			}
-			for k, v := range from {
-				m[k] = v
-			}
-			return m
+		metricName, metricTags := metrics.DecodeNameWithTags(name)
+
+		allTags := make(map[string]string)
+		for k, v := range r.tags {
+			allTags[k] = v
+		}
+		for k, v := range metricTags {
+			allTags[k] = v
 		}
 
 		switch metric := i.(type) {
 		case metrics.Counter:
-			metricName, metricTags := metrics.DecodeNameWithTags(name)
 			ms := metric.Snapshot()
 			pts = append(pts, client.Point{
 				Measurement: metricName,
-				Tags:        mergeTags(metricTags),
+				Tags:        allTags,
 				Fields: map[string]interface{}{
 					"value": ms.Count(),
 				},
@@ -117,8 +114,8 @@ func (r *reporter) send() error {
 		case metrics.Gauge:
 			ms := metric.Snapshot()
 			pts = append(pts, client.Point{
-				Measurement: fmt.Sprintf("%s.gauge", name),
-				Tags:        r.tags,
+				Measurement: metricName,
+				Tags:        allTags,
 				Fields: map[string]interface{}{
 					"value": ms.Value(),
 				},
@@ -127,8 +124,8 @@ func (r *reporter) send() error {
 		case metrics.GaugeFloat64:
 			ms := metric.Snapshot()
 			pts = append(pts, client.Point{
-				Measurement: fmt.Sprintf("%s.gauge", name),
-				Tags:        r.tags,
+				Measurement: metricName,
+				Tags:        allTags,
 				Fields: map[string]interface{}{
 					"value": ms.Value(),
 				},
@@ -138,8 +135,8 @@ func (r *reporter) send() error {
 			ms := metric.Snapshot()
 			ps := ms.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999})
 			pts = append(pts, client.Point{
-				Measurement: fmt.Sprintf("%s.histogram", name),
-				Tags:        r.tags,
+				Measurement: metricName,
+				Tags:        allTags,
 				Fields: map[string]interface{}{
 					"count":    ms.Count(),
 					"max":      ms.Max(),
@@ -159,8 +156,8 @@ func (r *reporter) send() error {
 		case metrics.Meter:
 			ms := metric.Snapshot()
 			pts = append(pts, client.Point{
-				Measurement: fmt.Sprintf("%s.meter", name),
-				Tags:        r.tags,
+				Measurement: metricName,
+				Tags:        allTags,
 				Fields: map[string]interface{}{
 					"count": ms.Count(),
 					"m1":    ms.Rate1(),
@@ -174,8 +171,8 @@ func (r *reporter) send() error {
 			ms := metric.Snapshot()
 			ps := ms.Percentiles([]float64{0.5, 0.75, 0.95, 0.99, 0.999, 0.9999})
 			pts = append(pts, client.Point{
-				Measurement: fmt.Sprintf("%s.timer", name),
-				Tags:        r.tags,
+				Measurement: metricName,
+				Tags:        allTags,
 				Fields: map[string]interface{}{
 					"count":    ms.Count(),
 					"max":      ms.Max(),
